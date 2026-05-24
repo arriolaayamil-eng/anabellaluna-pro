@@ -4,8 +4,7 @@ import aiService from '../services/aiService';
 import { toast } from 'react-toastify';
 
 const MODELS_OPENAI    = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'];
-const MODELS_ANTHROPIC = ['claude-sonnet-4-20250514', 'claude-4-opus-20250514', 'claude-3-7-sonnet-20250219', 'claude-3-5-haiku-20241022'];
-const MODELS_GEMINI    = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash-preview-05-20', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'];
+const MODELS_ANTHROPIC = ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-haiku-20240307'];
 
 const AIProviders = () => {
   const { currentMode } = useStateContext();
@@ -35,13 +34,9 @@ const AIProviders = () => {
         openai_maxTokens: cfg.openai?.maxTokens || 4096,
         openai_apiKey:    '',
         anthropic_enabled:   cfg.anthropic?.enabled  || false,
-        anthropic_model:     cfg.anthropic?.model    || 'claude-sonnet-4-20250514',
+        anthropic_model:     cfg.anthropic?.model    || 'claude-3-5-sonnet-20241022',
         anthropic_maxTokens: cfg.anthropic?.maxTokens || 4096,
         anthropic_apiKey:    '',
-        gemini_enabled:   cfg.gemini?.enabled  !== false,
-        gemini_model:     cfg.gemini?.model    || 'gemini-2.0-flash',
-        gemini_maxTokens: cfg.gemini?.maxTokens || 4096,
-        gemini_apiKey:    '',
       });
       setMetaInfo(meta);
       setUsage(usageData);
@@ -66,24 +61,9 @@ const AIProviders = () => {
           maxTokens:  form.anthropic_maxTokens,
           ...(form.anthropic_apiKey ? { apiKey: form.anthropic_apiKey } : {}),
         },
-        gemini: {
-          enabled:    form.gemini_enabled,
-          model:      form.gemini_model,
-          maxTokens:  form.gemini_maxTokens,
-          ...(form.gemini_apiKey ? { apiKey: form.gemini_apiKey } : {}),
-        },
       };
       await aiService.updateProviders(payload);
       toast.success('Configuración AI guardada');
-      // Recargar config para reflejar hasKey/keySource actualizado sin recargar página
-      const fresh = await aiService.getProviders();
-      setConfig(fresh);
-      setForm((f) => ({
-        ...f,
-        gemini_apiKey:    '',
-        openai_apiKey:    '',
-        anthropic_apiKey: '',
-      }));
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -221,58 +201,16 @@ const AIProviders = () => {
         <input type="number" style={inputStyle} value={form.anthropic_maxTokens} onChange={(e) => setForm((f) => ({ ...f, anthropic_maxTokens: parseInt(e.target.value, 10) }))} min={256} max={16384} />
       </div>
 
-      {/* Gemini */}
-      <div style={{ ...cardStyle, borderLeft: '3px solid #1a73e8' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}>🔵 Google Gemini</span>
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#dcfce7', color: '#16a34a' }}>FREE TIER</span>
-        </div>
-        <div style={{ fontSize: 12, color: isDark ? '#64748b' : '#94a3b8', marginBottom: 12 }}>
-          Gemini 2.0 Flash es <b>gratuito</b> (15 req/min · 1M tokens/día). Ideal para empezar sin costo.
-          Obtené tu API key en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: '#1a73e8' }}>aistudio.google.com/apikey</a>
-        </div>
-
-        <div style={toggleStyle(form.gemini_enabled)} onClick={() => setForm((f) => ({ ...f, gemini_enabled: !f.gemini_enabled }))}>
-          {form.gemini_enabled ? '✓ Habilitado' : '○ Deshabilitado'}
-        </div>
-
-        <label style={labelStyle}>API Key</label>
-        {config?.gemini?.keySource === 'env' && (
-          <div style={{ fontSize: 11, marginBottom: 6, padding: '4px 8px', borderRadius: 6, background: isDark ? 'rgba(234,179,8,0.1)' : '#fefce8', border: '1px solid #ca8a04', color: '#ca8a04' }}>
-            ⚠ Usando key de variable de entorno del servidor. Guardá una key aquí para tomar precedencia.
-          </div>
-        )}
-        {config?.gemini?.keySource === 'db' && (
-          <div style={{ fontSize: 11, marginBottom: 6, padding: '4px 8px', borderRadius: 6, background: isDark ? 'rgba(34,197,94,0.1)' : '#f0fdf4', border: '1px solid #16a34a', color: '#16a34a' }}>
-            ✓ Key configurada desde el panel (DB).
-          </div>
-        )}
-        <input type="password" style={inputStyle} placeholder={config?.gemini?.hasKey ? '••••••••••••••••' : 'AIza...'} value={form.gemini_apiKey} onChange={(e) => setForm((f) => ({ ...f, gemini_apiKey: e.target.value }))} />
-
-        <label style={labelStyle}>Modelo</label>
-        <select style={inputStyle} value={form.gemini_model} onChange={(e) => setForm((f) => ({ ...f, gemini_model: e.target.value }))}>
-          {MODELS_GEMINI.map((m) => (
-            <option key={m} value={m}>{m}{m.includes('flash') && !m.includes('pro') ? ' (gratis)' : ''}</option>
-          ))}
-        </select>
-
-        <label style={labelStyle}>Max Tokens</label>
-        <input type="number" style={inputStyle} value={form.gemini_maxTokens} onChange={(e) => setForm((f) => ({ ...f, gemini_maxTokens: parseInt(e.target.value, 10) }))} min={256} max={8192} />
-      </div>
-
       {/* Provider defaults */}
       <div style={cardStyle}>
         <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>⚙️ Configuración general</div>
         <label style={labelStyle}>Provider por defecto</label>
         <select style={inputStyle} value={form.defaultProvider} onChange={(e) => setForm((f) => ({ ...f, defaultProvider: e.target.value }))}>
-          <option value="gemini">Gemini (gratuito)</option>
           <option value="openai">OpenAI</option>
           <option value="anthropic">Anthropic</option>
         </select>
         <label style={labelStyle}>Provider fallback (si el primero falla)</label>
         <select style={inputStyle} value={form.fallbackProvider} onChange={(e) => setForm((f) => ({ ...f, fallbackProvider: e.target.value }))}>
-          <option value="">— Ninguno —</option>
-          <option value="gemini">Gemini (gratuito)</option>
           <option value="anthropic">Anthropic</option>
           <option value="openai">OpenAI</option>
         </select>

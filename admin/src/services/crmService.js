@@ -1,5 +1,7 @@
 import { api } from '../config/api';
 
+const toArr = (r) => Array.isArray(r) ? r : (r?.data || r?.items || []);
+
 export const crmService = {
   // ============ LINKS (DOCUMENTOS <-> ENTIDADES CRM) ============
   links: {
@@ -11,7 +13,7 @@ export const crmService = {
 
   // ============ PROPIEDADES ============
   propiedades: {
-    getAll: () => api.get('/crm/propiedades'),
+    getAll: () => api.get('/crm/propiedades').then(toArr),
     getById: (id) => api.get(`/crm/propiedades/${id}`),
     create: (data) => api.post('/crm/propiedades', data),
     update: (id, data) => api.put(`/crm/propiedades/${id}`, data),
@@ -24,7 +26,7 @@ export const crmService = {
 
   // ============ CLIENTES ============
   clientes: {
-    getAll: (q) => api.get(q ? `/crm/clientes?q=${encodeURIComponent(q)}` : '/crm/clientes'),
+    getAll: (q) => api.get(q ? `/crm/clientes?q=${encodeURIComponent(q)}` : '/crm/clientes').then(toArr),
     getById: (id) => api.get(`/crm/clientes/${id}`),
     create: (data) => api.post('/crm/clientes', data),
     update: (id, data) => api.put(`/crm/clientes/${id}`, data),
@@ -46,7 +48,7 @@ export const crmService = {
 
   // ============ AGENTES ============
   agentes: {
-    getAll: () => api.get('/crm/agentes'),
+    getAll: () => api.get('/crm/agentes').then(toArr),
     getById: (id) => api.get(`/crm/agentes/${id}`),
     create: (data) => api.post('/crm/agentes', data),
     update: (id, data) => api.put(`/crm/agentes/${id}`, data),
@@ -63,7 +65,7 @@ export const crmService = {
 
   // ============ OPERACIONES/VENTAS ============
   operaciones: {
-    getAll: () => api.get('/crm/operaciones'),
+    getAll: () => api.get('/crm/operaciones').then(toArr),
     getById: (id) => api.get(`/crm/operaciones/${id}`),
     create: (data) => api.post('/crm/operaciones', data),
     update: (id, data) => api.put(`/crm/operaciones/${id}`, data),
@@ -72,7 +74,7 @@ export const crmService = {
 
   // ============ CITAS ============
   citas: {
-    getAll: () => api.get('/crm/citas'),
+    getAll: () => api.get('/crm/citas').then(toArr),
     getById: (id) => api.get(`/crm/citas/${id}`),
     create: (data) => api.post('/crm/citas', data),
     update: (id, data) => api.put(`/crm/citas/${id}`, data),

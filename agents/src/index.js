@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 
 import './index.css';
 import App from './App';
@@ -9,7 +9,7 @@ import { ContextProvider } from './contexts/ContextProvider';
 // Cambiar entre App y AppTest para debugging
 const USE_TEST = false;
 
-ReactDOM.render(
+createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {USE_TEST ? (
       <AppTest />
@@ -19,7 +19,6 @@ ReactDOM.render(
       </ContextProvider>
     )}
   </React.StrictMode>,
-  document.getElementById('root'),
 );
 
 // Register Service Worker for PWA

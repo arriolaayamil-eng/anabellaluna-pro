@@ -3,8 +3,11 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import Chart from 'react-apexcharts';
 import { FaUserPlus, FaUser, FaStar, FaUsers, FaDollarSign, FaHome, FaMapMarkerAlt, FaShieldAlt, FaTimes, FaSave, FaThLarge, FaEdit, FaTrash, FaPhone, FaEnvelope, FaCalendar, FaChartLine, FaTrophy, FaBriefcase, FaArrowUp } from 'react-icons/fa';
-import { ChartComponent, SeriesCollectionDirective, SeriesDirective, Inject, LineSeries, Category, Tooltip, Legend, DataLabel } from '@syncfusion/ej2-react-charts';
-import { GridComponent, ColumnsDirective, ColumnDirective, Page, Sort, Inject as GridInject } from '@syncfusion/ej2-react-grids';
+import {
+  LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip as RTooltip, Legend as RLegend, ResponsiveContainer,
+} from 'recharts';
+import { DataTable } from '../components/ui/DataTable';
 
 import { useStateContext } from '../contexts/ContextProvider';
 
@@ -465,63 +468,20 @@ const Agentes = () => {
             {/* Gráfico de Rendimiento por Agente */}
             <div className={cardBase}>
               <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">📈 Rendimiento por Agente (Últimos 6 meses)</h3>
-              <ChartComponent
-                id="rendimiento-chart"
-                primaryXAxis={{ valueType: 'Category', title: 'Meses' }}
-                primaryYAxis={{ title: 'Ventas' }}
-                tooltip={{ enable: true }}
-                legendSettings={{ visible: true }}
-                height="350px"
-              >
-                <Inject services={[LineSeries, Category, Tooltip, Legend, DataLabel]} />
-                <SeriesCollectionDirective>
-                  <SeriesDirective
-                    type="Line"
-                    dataSource={rendimientoData}
-                    xName="mes"
-                    yName="Ana"
-                    name="Ana"
-                    marker={{ visible: true }}
-                    fill="#FF6B6B"
-                  />
-                  <SeriesDirective
-                    type="Line"
-                    dataSource={rendimientoData}
-                    xName="mes"
-                    yName="Carlos"
-                    name="Carlos"
-                    marker={{ visible: true }}
-                    fill="#4ECDC4"
-                  />
-                  <SeriesDirective
-                    type="Line"
-                    dataSource={rendimientoData}
-                    xName="mes"
-                    yName="Laura"
-                    name="Laura"
-                    marker={{ visible: true }}
-                    fill="#45B7D1"
-                  />
-                  <SeriesDirective
-                    type="Line"
-                    dataSource={rendimientoData}
-                    xName="mes"
-                    yName="Marcos"
-                    name="Marcos"
-                    marker={{ visible: true }}
-                    fill="#96CEB4"
-                  />
-                  <SeriesDirective
-                    type="Line"
-                    dataSource={rendimientoData}
-                    xName="mes"
-                    yName="Sofia"
-                    name="Sofía"
-                    marker={{ visible: true }}
-                    fill="#FFEAA7"
-                  />
-                </SeriesCollectionDirective>
-              </ChartComponent>
+              <ResponsiveContainer width="100%" height={350}>
+                <RLineChart data={rendimientoData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} label={{ value: 'Ventas', angle: -90, position: 'insideLeft', fontSize: 11 }} />
+                  <RTooltip />
+                  <RLegend />
+                  <Line type="monotone" dataKey="Ana" stroke="#FF6B6B" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="Carlos" stroke="#4ECDC4" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="Laura" stroke="#45B7D1" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="Marcos" stroke="#96CEB4" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="Sofia" name="Sofía" stroke="#d4b44a" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                </RLineChart>
+              </ResponsiveContainer>
             </div>
 
             {/* Listado de Agentes */}
@@ -573,22 +533,23 @@ const Agentes = () => {
             {/* Tabla de Comisiones */}
             <div className={`xl:col-span-2 ${cardBase}`}>
               <h3 className="text-lg font-semibold mb-4 dark:text-gray-100">💰 Comisiones y Asignaciones</h3>
-              <GridComponent
-                dataSource={agentes}
-                allowPaging
-                pageSettings={{ pageSize: 10 }}
-                allowSorting
-              >
-                <GridInject services={[Page, Sort]} />
-                <ColumnsDirective>
-                  <ColumnDirective field="nombre" headerText="Agente" width="150" />
-                  <ColumnDirective field="propiedades" headerText="Propiedades" textAlign="Center" width="100" />
-                  <ColumnDirective field="clientes" headerText="Clientes" textAlign="Center" width="100" />
-                  <ColumnDirective field="ventas" headerText="Ventas" textAlign="Center" width="80" />
-                  <ColumnDirective field="comisiones" headerText="Comisiones" textAlign="Right" width="120" format="C0" />
-                  <ColumnDirective field="zona" headerText="Zonas" width="200" />
-                </ColumnsDirective>
-              </GridComponent>
+              <DataTable
+                columns={[
+                  { accessorKey: 'nombre', header: 'Agente' },
+                  { accessorKey: 'propiedades', header: 'Propiedades' },
+                  { accessorKey: 'clientes', header: 'Clientes' },
+                  { accessorKey: 'ventas', header: 'Ventas' },
+                  {
+                    accessorKey: 'comisiones',
+                    header: 'Comisiones',
+                    cell: ({ row }) => `$${row.original.comisiones.toLocaleString()}`,
+                  },
+                  { accessorKey: 'zona', header: 'Zonas' },
+                ]}
+                data={agentes}
+                searchPlaceholder="Buscar agente..."
+                pageSize={10}
+              />
             </div>
 
             {/* Roles y Permisos */}

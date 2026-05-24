@@ -1,30 +1,18 @@
 import React from 'react';
-import { ChartComponent, SeriesCollectionDirective, SeriesDirective, Inject, LineSeries, DateTime, Legend, Tooltip } from '@syncfusion/ej2-react-charts';
+import { lineChartData, lineCustomSeries } from '../../data/dummy';
+import { AppLineChart } from '../ui/Chart';
 
-import { lineCustomSeries, LinePrimaryXAxis, LinePrimaryYAxis } from '../../data/dummy';
-import { useStateContext } from '../../contexts/ContextProvider';
+const chartData = lineChartData[0].map((point, i) => {
+  const row = { year: point.x.getFullYear().toString() };
+  lineCustomSeries.forEach((series) => {
+    row[series.name] = series.dataSource[i].y;
+  });
+  return row;
+});
+const lines = lineCustomSeries.map((s) => ({ dataKey: s.name }));
 
-const LineChart = () => {
-  const { currentMode } = useStateContext();
-
-  return (
-    <ChartComponent
-      id="line-chart"
-      height="420px"
-      primaryXAxis={LinePrimaryXAxis}
-      primaryYAxis={LinePrimaryYAxis}
-      chartArea={{ border: { width: 0 } }}
-      tooltip={{ enable: true }}
-      background={currentMode === 'Dark' ? '#33373E' : '#fff'}
-      legendSettings={{ background: 'white' }}
-    >
-      <Inject services={[LineSeries, DateTime, Legend, Tooltip]} />
-      <SeriesCollectionDirective>
-        {/* eslint-disable-next-line react/jsx-props-no-spreading */}
-        {lineCustomSeries.map((item, index) => <SeriesDirective key={index} {...item} />)}
-      </SeriesCollectionDirective>
-    </ChartComponent>
-  );
-};
+const LineChart = () => (
+  <AppLineChart data={chartData} lines={lines} xKey="year" height={420} />
+);
 
 export default LineChart;

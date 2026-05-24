@@ -1,10 +1,18 @@
+const path = require('path');
+
 module.exports = {
   eslint: {
     enable: false,
   },
   webpack: {
     configure: (config) => {
-      // Exclude Syncfusion packages from source-map-loader to avoid missing source map files
+      // Resolve @ alias for both build and dev server
+      config.resolve.alias = {
+        ...(config.resolve.alias || {}),
+        '@': path.resolve(__dirname, 'src'),
+      };
+
+      // Exclude all node_modules from source-map-loader
       const rules = config.module.rules || [];
       for (const rule of rules) {
         if (
@@ -14,15 +22,10 @@ module.exports = {
           Array.isArray(rule.use) &&
           rule.use.some((u) => u.loader && u.loader.includes('source-map-loader'))
         ) {
-          rule.exclude = Array.isArray(rule.exclude)
-            ? [...rule.exclude, /@syncfusion/]
-            : rule.exclude
-            ? [rule.exclude, /@syncfusion/]
-            : /@syncfusion/;
+          rule.exclude = /node_modules/;
         }
       }
 
-      // Reduce noise from source map parsing warnings
       config.ignoreWarnings = [
         ...(config.ignoreWarnings || []),
         /Failed to parse source map/,

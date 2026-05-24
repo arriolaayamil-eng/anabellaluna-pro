@@ -1,37 +1,74 @@
 import React from 'react';
-import { SparklineComponent, Inject, SparklineTooltip } from '@syncfusion/ej2-react-charts';
+import {
+  LineChart, Line, AreaChart, Area, BarChart, Bar,
+  ResponsiveContainer, Tooltip,
+} from 'recharts';
 
-class SparkLine extends React.PureComponent {
-  render() {
-    const { id, height, width, color, data, type, currentColor } = this.props;
+const SparkLine = ({ id, height, width, color, data, type, currentColor }) => {
+  const h = parseInt(height, 10) || 80;
+  const w = parseInt(width, 10) || 200;
 
-    return (
-      <SparklineComponent
-        id={id}
-        height={height}
-        width={width}
-        lineWidth={1}
-        valueType="Numeric"
-        fill={color}
-        border={{ color: currentColor, width: 2 }}
-        tooltipSettings={{
-          visible: true,
-          // eslint-disable-next-line no-template-curly-in-string
-          format: '${x} : data ${yval}',
-          trackLineSettings: {
-            visible: true,
-          },
-        }}
-        markerSettings={{ visible: ['All'], size: 2.5, fill: currentColor }}
-        dataSource={data}
-        xName="x"
-        yName="yval"
-        type={type}
-      >
-        <Inject services={[SparklineTooltip]} />
-      </SparklineComponent>
+  const stroke = currentColor || color || '#8884d8';
+  const fill = color || '#8884d8';
+
+  const commonProps = {
+    data,
+    margin: { top: 2, right: 2, left: 2, bottom: 2 },
+  };
+
+  const tipContent = (
+    <Tooltip
+      contentStyle={{ fontSize: 11, padding: '2px 6px' }}
+      formatter={(v, _n, p) => [p.payload.yval, `x: ${p.payload.x}`]}
+    />
+  );
+
+  let chart;
+  if (type === 'Column') {
+    chart = (
+      <BarChart {...commonProps}>
+        {tipContent}
+        <Bar dataKey="yval" fill={fill} />
+      </BarChart>
+    );
+  } else if (type === 'Area') {
+    chart = (
+      <AreaChart {...commonProps}>
+        {tipContent}
+        <Area
+          type="monotone"
+          dataKey="yval"
+          stroke={stroke}
+          fill={fill}
+          fillOpacity={0.3}
+          dot={false}
+          activeDot={{ r: 2 }}
+        />
+      </AreaChart>
+    );
+  } else {
+    chart = (
+      <LineChart {...commonProps}>
+        {tipContent}
+        <Line
+          type="monotone"
+          dataKey="yval"
+          stroke={stroke}
+          strokeWidth={1.5}
+          dot={{ r: 2, fill: stroke }}
+          activeDot={{ r: 3 }}
+        />
+      </LineChart>
     );
   }
-}
+
+  return (
+    <div id={id} style={{ width: w, height: h }}>
+      <ResponsiveContainer width="100%" height="100%">
+        {chart}
+      </ResponsiveContainer>
+    </div>
+  );
+};
 
 export default SparkLine;

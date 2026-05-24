@@ -1,45 +1,37 @@
 import React from 'react';
-import { AccumulationChartComponent, AccumulationSeriesCollectionDirective, AccumulationSeriesDirective, AccumulationLegend, PieSeries, AccumulationDataLabel, Inject, AccumulationTooltip } from '@syncfusion/ej2-react-charts';
+import {
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
-import { useStateContext } from '../../contexts/ContextProvider';
+const COLORS = ['#6366f1', '#22d3ee', '#f59e0b', '#10b981'];
 
 const Doughnut = ({ id, data, legendVisiblity, height }) => {
-  const { currentMode } = useStateContext();
+  const h = parseInt(height, 10) || 200;
+  const pieData = data.map((d) => ({ name: d.x, value: d.y, label: d.text }));
 
   return (
-    <AccumulationChartComponent
-      id={id}
-      legendSettings={{ visible: legendVisiblity, background: 'white' }}
-      height={height}
-      background={currentMode === 'Dark' ? '#33373E' : '#fff'}
-      tooltip={{ enable: true }}
-    >
-      <Inject services={[AccumulationLegend, PieSeries, AccumulationDataLabel, AccumulationTooltip]} />
-      <AccumulationSeriesCollectionDirective>
-        <AccumulationSeriesDirective
-          name="Sale"
-          dataSource={data}
-          xName="x"
-          yName="y"
-          innerRadius="40%"
-          startAngle={0}
-          endAngle={360}
-          radius="70%"
-          explode
-          explodeOffset="10%"
-          explodeIndex={2}
-          dataLabel={{
-            visible: true,
-            name: 'text',
-            position: 'Inside',
-            font: {
-              fontWeight: '600',
-              color: '#fff',
-            },
-          }}
-        />
-      </AccumulationSeriesCollectionDirective>
-    </AccumulationChartComponent>
+    <div id={id} style={{ height: h }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={pieData}
+            cx="50%"
+            cy="50%"
+            innerRadius="40%"
+            outerRadius="70%"
+            paddingAngle={2}
+            dataKey="value"
+            nameKey="name"
+          >
+            {pieData.map((entry, i) => (
+              <Cell key={entry.name} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(v, n, p) => [p.payload.label || v, n]} />
+          {legendVisiblity && <Legend />}
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 

@@ -3,8 +3,6 @@ import { BsCurrencyDollar } from 'react-icons/bs';
 import { GoDotFill } from 'react-icons/go';
 import { IoIosMore } from 'react-icons/io';
 import { FaTimes, FaUsers, FaHome, FaDollarSign, FaChartLine } from 'react-icons/fa';
-import { DropDownListComponent } from '@syncfusion/ej2-react-dropdowns';
-
 import { Stacked, Pie, Button, LineChart, SparkLine } from '../components';
 import { earningData, medicalproBranding, recentTransactions, weeklyStats, dropdownData, SparklineAreaData, ecomPieChartData } from '../data/dummy';
 import { useStateContext } from '../contexts/ContextProvider';
@@ -12,7 +10,15 @@ import avatar from '../data/avatar.png';
 
 const DropDown = ({ currentMode }) => (
   <div className="w-28 border-1 border-color px-2 py-1 rounded-md">
-    <DropDownListComponent id="time" fields={{ text: 'Time', value: 'Id' }} style={{ border: 'none', color: (currentMode === 'Dark') && 'white' }} value="1" dataSource={dropdownData} popupHeight="220px" popupWidth="120px" />
+    <select
+      id="time"
+      defaultValue="1"
+      style={{ border: 'none', background: 'transparent', color: currentMode === 'Dark' ? 'white' : 'inherit', outline: 'none', width: '100%' }}
+    >
+      {dropdownData.map((item) => (
+        <option key={item.Id} value={item.Id}>{item.Time}</option>
+      ))}
+    </select>
   </div>
 );
 

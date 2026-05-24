@@ -1,73 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { FaDollarSign, FaFileContract, FaChartLine, FaPlus, FaPercentage, FaHandshake, FaArrowUp, FaCalendarAlt, FaTimes, FaSave, FaHome, FaClock, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { FaDollarSign, FaFileContract, FaChartLine, FaPlus, FaPercentage, FaHandshake, FaArrowUp, FaCalendarAlt, FaTimes, FaSave, FaHome, FaUser, FaMapMarkerAlt, FaClock, FaCheckCircle } from 'react-icons/fa';
 import { useStateContext } from '../contexts/ContextProvider';
 import { crmService } from '../services/crmService';
 
 import Chart from 'react-apexcharts';
 
-const SIN_AGENTE_INTERMEDIARIO = '__sin_agente_intermediario__';
-const APORTE_COLEGA_COMPRADOR = 'comprador';
-const APORTE_COLEGA_PROPIEDAD = 'propiedad';
-
-const isSinAgenteIntermediario = (value) => value === SIN_AGENTE_INTERMEDIARIO;
-
-const VENTA_EMPTY = {
-  propiedadId: '',
-  clienteId: '',
-  monto: '',
-  moneda: 'USD',
-  agenteId: '',
-  fechaCierre: '',
-  comisionPorcentaje: '3.5',
-  inmobiliariaId: '',
-  inmobiliariaNombre: '',
-  comisionInmobiliariaPorcentaje: '3.5',
-  comparteConInmobiliaria: false,
-  aporteInmobiliariaColega: APORTE_COLEGA_COMPRADOR,
-  inmobiliariaColega: '',
-  colega: '',
-  comisionColegaPorcentaje: '',
-  propiedadColegaNombre: '',
-  propiedadColegaPrecio: '',
-  propiedadColegaDireccion: '',
-  formaPago: 'Contado',
-  notas: '',
-};
-
-const ALQUILER_EMPTY = {
-  propiedadId: '',
-  clienteId: '',
-  monto: '',
-  moneda: 'USD',
-  agenteId: '',
-  fechaCierre: '',
-  duracion: '12',
-  deposito: '',
-  comisionPorcentaje: '1',
-  notas: '',
-};
-
-const getStoredUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem('user') || '{}');
-  } catch (_) {
-    return {};
-  }
-};
-
-const ventaEmptyWithDefaults = () => {
-  const user = getStoredUser();
-  const adminId = user?.sub || user?._id || user?.id || '';
-  return {
-    ...VENTA_EMPTY,
-    inmobiliariaId: adminId ? String(adminId) : '',
-    inmobiliariaNombre: user?.empresa || user?.nombre || user?.username || 'Inmobiliaria',
-  };
-};
-
 const Ventas = () => {
-  const { currentMode } = useStateContext();
+  const { currentMode, currentColor } = useStateContext();
   
   // Estados para los modales
   const [showModalVenta, setShowModalVenta] = useState(false);
@@ -80,18 +20,33 @@ const Ventas = () => {
   const [showModalComisiones, setShowModalComisiones] = useState(false);
   const [showModalTasaCierre, setShowModalTasaCierre] = useState(false);
   
-  // Formularios
-  const [nuevaVenta, setNuevaVenta] = useState(ventaEmptyWithDefaults);
-  const [nuevoAlquiler, setNuevoAlquiler] = useState(ALQUILER_EMPTY);
-  const [submitting, setSubmitting] = useState(false);
-  const ventaUsaPropiedadExterna = nuevaVenta.comparteConInmobiliaria
-    && nuevaVenta.aporteInmobiliariaColega === APORTE_COLEGA_PROPIEDAD;
+  // Estado para nueva venta
+  const [nuevaVenta, setNuevaVenta] = useState({
+    propiedad: '',
+    cliente: '',
+    monto: '',
+    moneda: 'USD',
+    agente: '',
+    fechaCierre: '',
+    comision: '3.5',
+    formaPago: 'Contado',
+    observaciones: '',
+  });
   
-  // Listas de la BD para los dropdowns
-  const [propiedadesList, setPropiedadesList] = useState([]);
-  const [clientesList, setClientesList] = useState([]);
-  const [agentesList, setAgentesList] = useState([]);
-
+  // Estado para nuevo alquiler
+  const [nuevoAlquiler, setNuevoAlquiler] = useState({
+    propiedad: '',
+    cliente: '',
+    montoMensual: '',
+    moneda: 'USD',
+    agente: '',
+    fechaInicio: '',
+    duracion: '12',
+    deposito: '',
+    comision: '1',
+    observaciones: '',
+  });
+  
   // Estado para seguimiento
   const [nuevoSeguimiento, setNuevoSeguimiento] = useState({
     operacion: '',
@@ -119,32 +74,11 @@ const Ventas = () => {
     loadStats();
   }, [loadStats]);
 
-  // Cargar listas de la BD cuando se abre un modal
-  const loadModalData = useCallback(async () => {
-    try {
-      const [props, clientes, agentes] = await Promise.all([
-        crmService.propiedades.getAll().catch(() => []),
-        crmService.clientes.getAll().catch(() => []),
-        crmService.agentes.getAll().catch(() => []),
-      ]);
-      setPropiedadesList(Array.isArray(props) ? props : []);
-      setClientesList(Array.isArray(clientes) ? clientes : []);
-      setAgentesList(Array.isArray(agentes) ? agentes : []);
-    } catch (err) {
-      console.error('Error loading modal data:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (showModalVenta || showModalAlquiler || showModalSeguimiento) {
-      loadModalData();
-    }
-  }, [showModalVenta, showModalAlquiler, showModalSeguimiento, loadModalData]);
-
   // Datos reales de backend
   const sk = statsData?.kpis || {};
   const tend = statsData?.tendencia || {};
   const est = statsData?.estados || {};
+  const metaData = statsData?.meta || {};
   const seg = statsData?.seguimiento || {};
 
   const kpisVentas = [
@@ -242,65 +176,26 @@ const Ventas = () => {
 
   // Funciones de manejo para Venta
   const handleVentaChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setNuevaVenta(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    const { name, value } = e.target;
+    setNuevaVenta(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleOpenVentaModal = () => {
-    setNuevaVenta(prev => ({
-      ...ventaEmptyWithDefaults(),
-      ...prev,
-      inmobiliariaId: prev.inmobiliariaId || ventaEmptyWithDefaults().inmobiliariaId,
-      inmobiliariaNombre: prev.inmobiliariaNombre || ventaEmptyWithDefaults().inmobiliariaNombre,
-    }));
-    setShowModalVenta(true);
-  };
-
-  const handleVentaSubmit = async (e) => {
+  const handleVentaSubmit = (e) => {
     e.preventDefault();
-    const usaPropiedadExterna = nuevaVenta.comparteConInmobiliaria
-      && nuevaVenta.aporteInmobiliariaColega === APORTE_COLEGA_PROPIEDAD;
-    setSubmitting(true);
-    try {
-      const payload = {
-        tipo: 'Venta',
-        propiedadId: usaPropiedadExterna ? '' : nuevaVenta.propiedadId,
-        clienteId: nuevaVenta.clienteId,
-        agenteId: nuevaVenta.agenteId === SIN_AGENTE_INTERMEDIARIO ? '' : nuevaVenta.agenteId,
-        monto: Number(nuevaVenta.monto),
-        moneda: nuevaVenta.moneda,
-        comisionPorcentaje: isSinAgenteIntermediario(nuevaVenta.agenteId) ? 0 : Number(nuevaVenta.comisionPorcentaje),
-        formaPago: nuevaVenta.formaPago,
-        fechaCierre: nuevaVenta.fechaCierre || undefined,
-        estado: 'En Curso',
-        notas: nuevaVenta.notas,
-        metadata: {
-          inmobiliariaId: nuevaVenta.inmobiliariaId,
-          inmobiliaria: nuevaVenta.inmobiliariaNombre,
-          comisionInmobiliariaPorcentaje: Number(nuevaVenta.comisionInmobiliariaPorcentaje || 0),
-          comparteConInmobiliaria: Boolean(nuevaVenta.comparteConInmobiliaria),
-          aporteInmobiliariaColega: nuevaVenta.comparteConInmobiliaria ? nuevaVenta.aporteInmobiliariaColega : '',
-          origenPropiedad: usaPropiedadExterna ? 'externa' : 'interna',
-          propiedad: usaPropiedadExterna ? nuevaVenta.propiedadColegaNombre : '',
-          inmobiliariaColega: nuevaVenta.comparteConInmobiliaria ? nuevaVenta.inmobiliariaColega : '',
-          colega: nuevaVenta.comparteConInmobiliaria ? nuevaVenta.colega : '',
-          comisionColegaPorcentaje: nuevaVenta.comparteConInmobiliaria ? Number(nuevaVenta.comisionColegaPorcentaje || 0) : 0,
-          propiedadColegaNombre: usaPropiedadExterna ? nuevaVenta.propiedadColegaNombre : '',
-          propiedadColegaPrecio: usaPropiedadExterna ? Number(nuevaVenta.propiedadColegaPrecio || 0) : 0,
-          propiedadColegaDireccion: usaPropiedadExterna ? nuevaVenta.propiedadColegaDireccion : '',
-        },
-      };
-      await crmService.operaciones.create(payload);
-      toast.success('¡Venta registrada exitosamente!');
-      setShowModalVenta(false);
-      setNuevaVenta(ventaEmptyWithDefaults());
-      loadStats();
-    } catch (err) {
-      toast.error('Error al registrar la venta');
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-    }
+    console.log('Nueva venta:', nuevaVenta);
+    toast.success('¡Venta registrada exitosamente!');
+    setShowModalVenta(false);
+    setNuevaVenta({
+      propiedad: '',
+      cliente: '',
+      monto: '',
+      moneda: 'USD',
+      agente: '',
+      fechaCierre: '',
+      comision: '3.5',
+      formaPago: 'Contado',
+      observaciones: '',
+    });
   };
 
   // Funciones de manejo para Alquiler
@@ -309,35 +204,23 @@ const Ventas = () => {
     setNuevoAlquiler(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAlquilerSubmit = async (e) => {
+  const handleAlquilerSubmit = (e) => {
     e.preventDefault();
-    setSubmitting(true);
-    try {
-      const payload = {
-        tipo: 'Alquiler',
-        propiedadId: nuevoAlquiler.propiedadId,
-        clienteId: nuevoAlquiler.clienteId,
-        agenteId: nuevoAlquiler.agenteId === SIN_AGENTE_INTERMEDIARIO ? '' : nuevoAlquiler.agenteId,
-        monto: Number(nuevoAlquiler.monto),
-        moneda: nuevoAlquiler.moneda,
-        comisionPorcentaje: isSinAgenteIntermediario(nuevoAlquiler.agenteId) ? 0 : Number(nuevoAlquiler.comisionPorcentaje),
-        duracion: Number(nuevoAlquiler.duracion) || 12,
-        deposito: Number(nuevoAlquiler.deposito) || 0,
-        fechaCierre: nuevoAlquiler.fechaCierre || undefined,
-        estado: 'En Curso',
-        notas: nuevoAlquiler.notas,
-      };
-      await crmService.operaciones.create(payload);
-      toast.success('¡Alquiler registrado exitosamente!');
-      setShowModalAlquiler(false);
-      setNuevoAlquiler(ALQUILER_EMPTY);
-      loadStats();
-    } catch (err) {
-      toast.error('Error al registrar el alquiler');
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-    }
+    console.log('Nuevo alquiler:', nuevoAlquiler);
+    toast.success('¡Alquiler registrado exitosamente!');
+    setShowModalAlquiler(false);
+    setNuevoAlquiler({
+      propiedad: '',
+      cliente: '',
+      montoMensual: '',
+      moneda: 'USD',
+      agente: '',
+      fechaInicio: '',
+      duracion: '12',
+      deposito: '',
+      comision: '1',
+      observaciones: '',
+    });
   };
 
   // Funciones de manejo para Seguimiento
@@ -346,32 +229,19 @@ const Ventas = () => {
     setNuevoSeguimiento(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSeguimientoSubmit = async (e) => {
+  const handleSeguimientoSubmit = (e) => {
     e.preventDefault();
-    setSubmitting(true);
-    try {
-      const op = operaciones.find(o => String(o.id) === nuevoSeguimiento.operacion);
-      const fechaHora = nuevoSeguimiento.fecha && nuevoSeguimiento.hora
-        ? new Date(`${nuevoSeguimiento.fecha}T${nuevoSeguimiento.hora}`)
-        : new Date();
-      await crmService.citas.create({
-        titulo: `Seguimiento: ${op ? `${op.propiedad} - ${op.cliente}` : 'Operación'}`,
-        tipo: nuevoSeguimiento.tipo,
-        fecha: fechaHora.toISOString(),
-        descripcion: nuevoSeguimiento.descripcion,
-        prioridad: nuevoSeguimiento.prioridad,
-        estado: 'Programada',
-        metadata: { operacionId: nuevoSeguimiento.operacion },
-      });
-      toast.success('¡Seguimiento programado exitosamente!');
-      setShowModalSeguimiento(false);
-      setNuevoSeguimiento({ operacion: '', tipo: 'Llamada', fecha: '', hora: '', descripcion: '', prioridad: 'Media' });
-    } catch (err) {
-      toast.error('Error al programar el seguimiento');
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-    }
+    console.log('Nuevo seguimiento:', nuevoSeguimiento);
+    toast.success('¡Seguimiento programado exitosamente!');
+    setShowModalSeguimiento(false);
+    setNuevoSeguimiento({
+      operacion: '',
+      tipo: 'Llamada',
+      fecha: '',
+      hora: '',
+      descripcion: '',
+      prioridad: 'Media',
+    });
   };
 
   return (
@@ -386,7 +256,7 @@ const Ventas = () => {
       {/* Botones de Acción */}
       <div className="flex flex-wrap gap-3 mb-6">
         <button 
-          onClick={handleOpenVentaModal}
+          onClick={() => setShowModalVenta(true)}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-medium bg-emerald-500 hover:bg-emerald-600 transition-all shadow-sm hover:shadow-md"
         >
           <FaPlus /> Nueva Venta
@@ -659,32 +529,13 @@ const Ventas = () => {
                   <FaHome className="text-green-500" /> Información de la Operación
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {!ventaUsaPropiedadExterna ? (
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-gray-200">Propiedad nuestra *</label>
-                      <select name="propiedadId" value={nuevaVenta.propiedadId} onChange={handleVentaChange} required={!ventaUsaPropiedadExterna} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100">
-                        <option value="">Seleccionar propiedad</option>
-                        {propiedadesList.map(p => (
-                          <option key={p._id} value={p._id}>{p.title || p.address || p._id}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
-                      <p className="text-sm font-semibold text-amber-800 dark:text-amber-100">Propiedad externa</p>
-                      <p className="text-sm text-amber-700 dark:text-amber-200">No se exige propiedad interna porque la parte vendedora la aporta la inmobiliaria colega.</p>
-                    </div>
-                  )}
                   <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">
-                      {ventaUsaPropiedadExterna ? 'Cliente comprador *' : nuevaVenta.comparteConInmobiliaria ? 'Cliente vendedor *' : 'Cliente *'}
-                    </label>
-                    <select name="clienteId" value={nuevaVenta.clienteId} onChange={handleVentaChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100">
-                      <option value="">Seleccionar cliente</option>
-                      {clientesList.map(c => (
-                        <option key={c._id} value={c._id}>{c.nombre} {c.apellido || ''}</option>
-                      ))}
-                    </select>
+                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Propiedad *</label>
+                    <input type="text" name="propiedad" value={nuevaVenta.propiedad} onChange={handleVentaChange} required placeholder="Depto 2amb Palermo" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Cliente *</label>
+                    <input type="text" name="cliente" value={nuevaVenta.cliente} onChange={handleVentaChange} required placeholder="Juan Pérez" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Monto *</label>
@@ -699,86 +550,23 @@ const Ventas = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Agente *</label>
-                    <select name="agenteId" value={nuevaVenta.agenteId} onChange={handleVentaChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100">
+                    <select name="agente" value={nuevaVenta.agente} onChange={handleVentaChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100">
                       <option value="">Seleccionar agente</option>
-                      <option value={SIN_AGENTE_INTERMEDIARIO}>Sin agente intermediario</option>
-                      {agentesList.map(a => (
-                        <option key={a._id} value={a._id}>{a.nombre}</option>
-                      ))}
+                      <option value="Ana López">Ana López</option>
+                      <option value="Carlos Ruiz">Carlos Ruiz</option>
+                      <option value="Laura Fernández">Laura Fernández</option>
+                      <option value="Sofía Torres">Sofía Torres</option>
+                      <option value="Marcos Silva">Marcos Silva</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Fecha de Cierre</label>
-                    <input type="date" name="fechaCierre" value={nuevaVenta.fechaCierre} onChange={handleVentaChange} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                  </div>
-                  {!isSinAgenteIntermediario(nuevaVenta.agenteId) && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-gray-200">Comisión agente (%)</label>
-                      <input type="number" name="comisionPorcentaje" value={nuevaVenta.comisionPorcentaje} onChange={handleVentaChange} step="0.1" placeholder="3.5" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Inmobiliaria</label>
-                    <input type="text" name="inmobiliariaNombre" value={nuevaVenta.inmobiliariaNombre} onChange={handleVentaChange} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
+                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Fecha de Cierre *</label>
+                    <input type="date" name="fechaCierre" value={nuevaVenta.fechaCierre} onChange={handleVentaChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Comisión inmobiliaria (%)</label>
-                    <input type="number" name="comisionInmobiliariaPorcentaje" value={nuevaVenta.comisionInmobiliariaPorcentaje} onChange={handleVentaChange} step="0.1" placeholder="3.5" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
+                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Comisión (%)</label>
+                    <input type="number" name="comision" value={nuevaVenta.comision} onChange={handleVentaChange} step="0.1" placeholder="3.5" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="inline-flex items-center gap-2 text-sm font-medium dark:text-gray-200">
-                      <input type="checkbox" name="comparteConInmobiliaria" checked={nuevaVenta.comparteConInmobiliaria} onChange={handleVentaChange} className="rounded border-gray-300 text-green-600 focus:ring-green-500" />
-                      La venta se cierra con inmobiliaria colega
-                    </label>
-                  </div>
-                  {nuevaVenta.comparteConInmobiliaria && (
-                    <>
-                      <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                        <p className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-200">¿Qué aporta la inmobiliaria colega?</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="flex gap-3 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700 dark:text-gray-200">
-                            <input type="radio" name="aporteInmobiliariaColega" value={APORTE_COLEGA_COMPRADOR} checked={nuevaVenta.aporteInmobiliariaColega === APORTE_COLEGA_COMPRADOR} onChange={handleVentaChange} className="mt-1 text-green-600 focus:ring-green-500" />
-                            <span><strong>Trae comprador</strong><br />Nosotros aportamos la propiedad del vendedor.</span>
-                          </label>
-                          <label className="flex gap-3 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700 dark:text-gray-200">
-                            <input type="radio" name="aporteInmobiliariaColega" value={APORTE_COLEGA_PROPIEDAD} checked={nuevaVenta.aporteInmobiliariaColega === APORTE_COLEGA_PROPIEDAD} onChange={handleVentaChange} className="mt-1 text-green-600 focus:ring-green-500" />
-                            <span><strong>Trae propiedad/vendedor</strong><br />Nosotros aportamos el comprador y cargamos propiedad ajena.</span>
-                          </label>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2 dark:text-gray-200">Inmobiliaria colega</label>
-                        <input type="text" name="inmobiliariaColega" value={nuevaVenta.inmobiliariaColega} onChange={handleVentaChange} placeholder="Nombre de la inmobiliaria" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2 dark:text-gray-200">Colega</label>
-                        <input type="text" name="colega" value={nuevaVenta.colega} onChange={handleVentaChange} placeholder="Nombre del colega" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2 dark:text-gray-200">Comisión colega (%)</label>
-                        <input type="number" name="comisionColegaPorcentaje" value={nuevaVenta.comisionColegaPorcentaje} onChange={handleVentaChange} step="0.1" placeholder="0" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                      </div>
-                      {ventaUsaPropiedadExterna && (
-                        <>
-                          <div className="md:col-span-2 pt-2">
-                            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Propiedad ajena</p>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2 dark:text-gray-200">Nombre de la propiedad *</label>
-                            <input type="text" name="propiedadColegaNombre" value={nuevaVenta.propiedadColegaNombre} onChange={handleVentaChange} required={ventaUsaPropiedadExterna} placeholder="Nombre o referencia" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2 dark:text-gray-200">Precio</label>
-                            <input type="number" name="propiedadColegaPrecio" value={nuevaVenta.propiedadColegaPrecio} onChange={handleVentaChange} step="0.01" placeholder="0" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium mb-2 dark:text-gray-200">Dirección</label>
-                            <input type="text" name="propiedadColegaDireccion" value={nuevaVenta.propiedadColegaDireccion} onChange={handleVentaChange} placeholder="Dirección de la propiedad" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
-                          </div>
-                        </>
-                      )}
-                    </>
-                  )}
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Forma de Pago</label>
                     <select name="formaPago" value={nuevaVenta.formaPago} onChange={handleVentaChange} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100">
@@ -793,15 +581,15 @@ const Ventas = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2 dark:text-gray-200">Observaciones</label>
-                <textarea name="notas" value={nuevaVenta.notas} onChange={handleVentaChange} rows="3" placeholder="Detalles adicionales de la operación..." className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
+                <textarea name="observaciones" value={nuevaVenta.observaciones} onChange={handleVentaChange} rows="3" placeholder="Detalles adicionales de la operación..." className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-800 dark:text-gray-100" />
               </div>
 
               <div className="flex gap-3 justify-end pt-4 border-t dark:border-gray-700">
                 <button type="button" onClick={() => setShowModalVenta(false)} className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors font-medium">
                   Cancelar
                 </button>
-                <button type="submit" disabled={submitting} className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-60 transition-colors font-medium flex items-center gap-2">
-                  {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />} Registrar Venta
+                <button type="submit" className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium flex items-center gap-2">
+                  <FaSave /> Registrar Venta
                 </button>
               </div>
               </form>
@@ -835,25 +623,15 @@ const Ventas = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Propiedad *</label>
-                    <select name="propiedadId" value={nuevoAlquiler.propiedadId} onChange={handleAlquilerChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                      <option value="">Seleccionar propiedad</option>
-                      {propiedadesList.map(p => (
-                        <option key={p._id} value={p._id}>{p.title || p.address || p._id}</option>
-                      ))}
-                    </select>
+                    <input type="text" name="propiedad" value={nuevoAlquiler.propiedad} onChange={handleAlquilerChange} required placeholder="Casa 3amb Belgrano" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Cliente *</label>
-                    <select name="clienteId" value={nuevoAlquiler.clienteId} onChange={handleAlquilerChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100">
-                      <option value="">Seleccionar cliente</option>
-                      {clientesList.map(c => (
-                        <option key={c._id} value={c._id}>{c.nombre} {c.apellido || ''}</option>
-                      ))}
-                    </select>
+                    <input type="text" name="cliente" value={nuevoAlquiler.cliente} onChange={handleAlquilerChange} required placeholder="María González" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Monto Mensual *</label>
-                    <input type="number" name="monto" value={nuevoAlquiler.monto} onChange={handleAlquilerChange} required placeholder="1200" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
+                    <input type="number" name="montoMensual" value={nuevoAlquiler.montoMensual} onChange={handleAlquilerChange} required placeholder="1200" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Moneda *</label>
@@ -864,17 +642,18 @@ const Ventas = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Agente *</label>
-                    <select name="agenteId" value={nuevoAlquiler.agenteId} onChange={handleAlquilerChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                    <select name="agente" value={nuevoAlquiler.agente} onChange={handleAlquilerChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100">
                       <option value="">Seleccionar agente</option>
-                      <option value={SIN_AGENTE_INTERMEDIARIO}>Sin agente intermediario</option>
-                      {agentesList.map(a => (
-                        <option key={a._id} value={a._id}>{a.nombre}</option>
-                      ))}
+                      <option value="Ana López">Ana López</option>
+                      <option value="Carlos Ruiz">Carlos Ruiz</option>
+                      <option value="Laura Fernández">Laura Fernández</option>
+                      <option value="Sofía Torres">Sofía Torres</option>
+                      <option value="Marcos Silva">Marcos Silva</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Fecha de Inicio</label>
-                    <input type="date" name="fechaCierre" value={nuevoAlquiler.fechaCierre} onChange={handleAlquilerChange} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
+                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Fecha de Inicio *</label>
+                    <input type="date" name="fechaInicio" value={nuevoAlquiler.fechaInicio} onChange={handleAlquilerChange} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Duración (meses)</label>
@@ -884,26 +663,24 @@ const Ventas = () => {
                     <label className="block text-sm font-medium mb-2 dark:text-gray-200">Depósito</label>
                     <input type="number" name="deposito" value={nuevoAlquiler.deposito} onChange={handleAlquilerChange} placeholder="2400" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
                   </div>
-                  {!isSinAgenteIntermediario(nuevoAlquiler.agenteId) && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2 dark:text-gray-200">Comisión agente (%)</label>
-                      <input type="number" name="comisionPorcentaje" value={nuevoAlquiler.comisionPorcentaje} onChange={handleAlquilerChange} step="0.5" placeholder="1" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium mb-2 dark:text-gray-200">Comisión (meses)</label>
+                    <input type="number" name="comision" value={nuevoAlquiler.comision} onChange={handleAlquilerChange} step="0.5" placeholder="1" className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2 dark:text-gray-200">Observaciones</label>
-                <textarea name="notas" value={nuevoAlquiler.notas} onChange={handleAlquilerChange} rows="3" placeholder="Detalles adicionales del alquiler..." className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
+                <textarea name="observaciones" value={nuevoAlquiler.observaciones} onChange={handleAlquilerChange} rows="3" placeholder="Detalles adicionales del alquiler..." className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100" />
               </div>
 
               <div className="flex gap-3 justify-end pt-4 border-t dark:border-gray-700">
                 <button type="button" onClick={() => setShowModalAlquiler(false)} className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors font-medium">
                   Cancelar
                 </button>
-                <button type="submit" disabled={submitting} className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-60 transition-colors font-medium flex items-center gap-2">
-                  {submitting ? <FaSpinner className="animate-spin" /> : <FaSave />} Registrar Alquiler
+                <button type="submit" className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
+                  <FaSave /> Registrar Alquiler
                 </button>
               </div>
               </form>
@@ -983,8 +760,8 @@ const Ventas = () => {
                 <button type="button" onClick={() => setShowModalSeguimiento(false)} className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors font-medium">
                   Cancelar
                 </button>
-                <button type="submit" disabled={submitting} className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-60 transition-colors font-medium flex items-center gap-2">
-                  {submitting ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />} Programar Seguimiento
+                <button type="submit" className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium flex items-center gap-2">
+                  <FaCheckCircle /> Programar Seguimiento
                 </button>
               </div>
               </form>

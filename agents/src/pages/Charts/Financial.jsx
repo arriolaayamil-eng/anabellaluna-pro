@@ -1,53 +1,57 @@
 import React from 'react';
-import { ChartComponent, SeriesCollectionDirective, SeriesDirective, Inject, HiloSeries, Tooltip, DateTime, Zoom, Logarithmic, Crosshair } from '@syncfusion/ej2-react-charts';
+import {
+  ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer,
+} from 'recharts';
 
-import { financialChartData, FinancialPrimaryXAxis, FinancialPrimaryYAxis } from '../../data/dummy';
-import { useStateContext } from '../../contexts/ContextProvider';
+import { financialChartData } from '../../data/dummy';
 import { ChartsHeader } from '../../components';
 
-const date1 = new Date('2017, 1, 1');
+const date2017 = new Date('2017-01-01');
 
-// eslint-disable-next-line consistent-return
-function filterValue(value) {
-  if (value.x >= date1) {
-    // eslint-disable-next-line no-sequences
-    return value.x, value.high, value.low;
-  }
-}
-const returnValue = financialChartData.filter(filterValue);
+const chartData = financialChartData
+  .filter((d) => d.x >= date2017)
+  .map((d) => ({
+    date: d.x.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+    high: +d.high.toFixed(2),
+    low: +d.low.toFixed(2),
+  }));
 
-const Financial = () => {
-  const { currentMode } = useStateContext();
+const tickInterval = Math.max(1, Math.floor(chartData.length / 8));
 
-  return (
-    <div className="min-h-screen px-6 lg:px-8 pt-4 pb-6 bg-gray-50 dark:bg-main-dark-bg">
-      <ChartsHeader category="Financial" title="AAPLE Historical" />
-      <div className="w-full">
-        <ChartComponent
-          id="charts"
-          primaryXAxis={FinancialPrimaryXAxis}
-          primaryYAxis={FinancialPrimaryYAxis}
-          chartArea={{ border: { width: 0 } }}
-          tooltip={{ enable: true, shared: true }}
-          crosshair={{ enable: true, lineType: 'Vertical', line: { width: 0 } }}
-          background={currentMode === 'Dark' ? '#33373E' : '#fff'}
-        >
-          <Inject services={[HiloSeries, Tooltip, DateTime, Logarithmic, Crosshair, Zoom]} />
-          <SeriesCollectionDirective>
-            <SeriesDirective
-              dataSource={returnValue}
-              xName="x"
-              yName="low"
-              name="Apple Inc"
-              type="Hilo"
-              low="low"
-              high="high"
-            />
-          </SeriesCollectionDirective>
-        </ChartComponent>
-      </div>
+const Financial = () => (
+  <div className="min-h-screen px-6 lg:px-8 pt-4 pb-6 bg-gray-50 dark:bg-main-dark-bg">
+    <ChartsHeader category="Financial" title="AAPL Historical — High / Low" />
+    <div className="w-full bg-white dark:bg-secondary-dark-bg rounded-xl p-4 shadow-sm">
+      <ResponsiveContainer width="100%" height={400}>
+        <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="date" interval={tickInterval} tick={{ fontSize: 12 }} />
+          <YAxis tickFormatter={(v) => `$${v}`} width={60} />
+          <Tooltip formatter={(v, name) => [`$${v}`, name]} />
+          <Legend />
+          <Line
+            type="monotone"
+            dataKey="high"
+            stroke="#3b82f6"
+            dot={false}
+            strokeWidth={1.5}
+            name="High"
+            activeDot={{ r: 3 }}
+          />
+          <Line
+            type="monotone"
+            dataKey="low"
+            stroke="#ef4444"
+            dot={false}
+            strokeWidth={1.5}
+            name="Low"
+            activeDot={{ r: 3 }}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
-  );
-};
+  </div>
+);
 
 export default Financial;

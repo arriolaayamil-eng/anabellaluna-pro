@@ -3,7 +3,7 @@ const API_CONFIG = {
   baseURL: process.env.REACT_APP_API_URL
     || (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
       ? 'https://api.anabellaluna.com.ar'
-      : 'http://localhost:4000'),
+      : 'http://localhost:4001'),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 
       if (response.status === 401) {
         const ep = String(endpoint || '');
-        const isAuthFlow = ep.startsWith('/auth/login') || ep.startsWith('/auth/register') || ep.startsWith('/auth/2fa/');
+        const isAuthFlow = ep.startsWith('/auth/');
         if (!isAuthFlow) {
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');

@@ -1,67 +1,56 @@
 import React, { useState } from 'react';
-import { ScheduleComponent, ViewsDirective, ViewDirective, Day, Week, WorkWeek, Month, Agenda, Inject, Resize, DragAndDrop } from '@syncfusion/ej2-react-schedule';
-import { DatePickerComponent } from '@syncfusion/ej2-react-calendars';
 
 import { scheduleData } from '../data/dummy';
 import { Header } from '../components';
-import { useStateContext } from '../contexts/ContextProvider';
+import { Calendar } from '../components/ui/calendar';
 
-// eslint-disable-next-line react/destructuring-assignment
-const PropertyPane = (props) => <div className="mt-5">{props.children}</div>;
+const fmt = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 const Scheduler = () => {
-  const { currentMode } = useStateContext();
-  const [scheduleObj, setScheduleObj] = useState();
+  const [selected, setSelected] = useState(new Date(2021, 0, 10));
 
-  const change = (args) => {
-    scheduleObj.selectedDate = args.value;
-    scheduleObj.dataBind();
-  };
-
-  const onDragStart = (arg) => {
-    // eslint-disable-next-line no-param-reassign
-    arg.navigation.enable = true;
-  };
+  const events = scheduleData.filter((e) => sameDay(new Date(e.StartTime), selected));
 
   return (
     <div className="min-h-screen px-6 lg:px-8 pt-4 pb-6 bg-gray-50 dark:bg-main-dark-bg">
       <Header category="App" title="Calendar" />
-      <ScheduleComponent
-        height="650px"
-        ref={(schedule) => setScheduleObj(schedule)}
-        selectedDate={new Date(2021, 0, 10)}
-        eventSettings={{ dataSource: scheduleData }}
-        dragStart={onDragStart}
-        startHour="09:00"
-        endHour="21:00"
-        firstDayOfWeek={1}
-        workDays={[0, 1, 2, 3, 4, 5, 6]}
-        cssClass={currentMode === 'Dark' ? 'e-schedule-dark' : 'e-schedule-light'}
-      >
-        <ViewsDirective>
-          { ['Day', 'Week', 'WorkWeek', 'Month', 'Agenda'].map((item) => <ViewDirective key={item} option={item} />)}
-        </ViewsDirective>
-        <Inject services={[Day, Week, WorkWeek, Month, Agenda, Resize, DragAndDrop]} />
-      </ScheduleComponent>
-      <PropertyPane>
-        <table
-          style={{ width: '100%', background: 'white' }}
-        >
-          <tbody>
-            <tr style={{ height: '50px' }}>
-              <td style={{ width: '100%' }}>
-                <DatePickerComponent
-                  value={new Date(2021, 0, 10)}
-                  showClearButton={false}
-                  placeholder="Current Date"
-                  floatLabelType="Always"
-                  change={change}
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </PropertyPane>
+      <div className="flex flex-wrap gap-6">
+        <div className="bg-white dark:bg-secondary-dark-bg rounded-xl shadow-sm p-4 self-start">
+          <Calendar
+            mode="single"
+            selected={selected}
+            onSelect={(d) => d && setSelected(d)}
+          />
+        </div>
+
+        <div className="flex-1 min-w-[280px]">
+          <h3 className="font-semibold text-base mb-3 dark:text-gray-200">
+            {selected.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </h3>
+          {events.length === 0 ? (
+            <p className="text-sm text-gray-400">No events for this day.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {events.map((ev) => (
+                <div
+                  key={ev.Id}
+                  className="bg-white dark:bg-secondary-dark-bg rounded-xl shadow-sm p-4 border-l-4"
+                  style={{ borderLeftColor: ev.CategoryColor }}
+                >
+                  <p className="font-semibold text-sm dark:text-gray-100">{ev.Subject}</p>
+                  {ev.Location && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{ev.Location}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    {fmt(ev.StartTime)} — {fmt(ev.EndTime)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
