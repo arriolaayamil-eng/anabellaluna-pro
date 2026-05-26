@@ -75,7 +75,7 @@ const IFolderPlus = (p) => <SFIcon {...p}><path d="M22 19a2 2 0 01-2 2H4a2 2 0 0
 /* ═══════════════════ iOS System Colors & Helpers ═══════════════════ */
 const API = process.env.REACT_APP_API_URL
   || (typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
-    ? 'https://api.anabellaluna.com.ar'
+    ? ''
     : 'http://localhost:4000');
 const DOMAIN = 'crm';
 const IOS_LIGHT = {
