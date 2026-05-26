@@ -107,7 +107,7 @@ const Navbar = () => {
           });
         }
         prevNoLeidas.current = newCount;
-        setNavbarStats(summary);
+        setNavbarStats(prev => ({ ...prev, ...summary }));
         setUnreadCount(summary.mensajes?.total || 0);
       }
     } catch (e) {

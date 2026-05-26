@@ -5,19 +5,22 @@ import './index.css';
 import App from './App';
 import AppTest from './App.test';
 import { ContextProvider } from './contexts/ContextProvider';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Cambiar entre App y AppTest para debugging
 const USE_TEST = false;
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {USE_TEST ? (
-      <AppTest />
-    ) : (
-      <ContextProvider>
-        <App />
-      </ContextProvider>
-    )}
+    <ErrorBoundary>
+      {USE_TEST ? (
+        <AppTest />
+      ) : (
+        <ContextProvider>
+          <App />
+        </ContextProvider>
+      )}
+    </ErrorBoundary>
   </React.StrictMode>,
 );
 
