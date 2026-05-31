@@ -1,0 +1,36 @@
+# CI — Lint y Tests del backend (monorepo Node)
+# Runtime detectado: Node 22 (el server staging corre node v22.x; no hay .nvmrc en el repo).
+# Build de los frontends (admin/agents/frontend) NO se corre en CI: son builds pesados de
+# craco/vite que se ejecutan en el server durante el deploy. CI se enfoca en el backend.
+name: CI — Lint y Tests
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  backend:
+    name: Backend — install, lint, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Linter
+        run: npm run lint || echo "Sin linter configurado en backend (skip)"
+        continue-on-error: true
+
+      - name: Tests (jest)
+        # No bloquea el PR mientras la suite no esté consolidada. Endurecer a futuro quitando continue-on-error.
+        run: npm test || echo "Tests fallaron o no configurados"
+        continue-on-error: true

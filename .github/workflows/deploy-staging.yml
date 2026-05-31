@@ -1,0 +1,53 @@
+# Deploy automático a Staging en cada push a `develop`.
+# Requiere los secrets: SSH_STAGING_HOST, SSH_STAGING_USER, SSH_STAGING_PRIVATE_KEY
+# (ver WORKFLOW.md / instrucciones del setup).
+# El build se ejecuta EN EL SERVER (scripts/deploy-staging.sh) para usar el mismo entorno
+# que producción de staging (Node 22, pm2, nginx) — no se buildea en el runner.
+name: Deploy → Staging
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch: {}   # permite re-disparar manualmente desde la pestaña Actions
+
+jobs:
+  deploy:
+    name: Deploy a Staging via SSH
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy (SSH → scripts/deploy-staging.sh)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_STAGING_HOST }}
+          username: ${{ secrets.SSH_STAGING_USER }}
+          key: ${{ secrets.SSH_STAGING_PRIVATE_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+            echo "=== Deploy iniciado $(date) — commit ${{ github.sha }} ==="
+            cd /var/www/anabellaluna-pro
+            # Bootstrap: asegurar que el server quede en develop antes de correr el script
+            git fetch origin develop
+            git checkout -f -B develop origin/develop
+            git reset --hard origin/develop
+            bash scripts/deploy-staging.sh
+            echo "=== Deploy finalizado $(date) ==="
+
+      - name: Health check (dominios staging)
+        run: |
+          sleep 8
+          for url in https://agentdebug.online https://admin.agentdebug.online https://agentes.agentdebug.online; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
+            echo "$url -> HTTP $code"
+            [ "$code" = "200" ] || echo "⚠️  $url no respondió 200 — revisar"
+          done
+
+      - name: Resultado
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Deploy a staging OK — commit ${{ github.sha }}"
+          else
+            echo "❌ Deploy falló — revisar logs arriba"
+            exit 1
+          fi

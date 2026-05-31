@@ -34,3 +34,34 @@ Thumbs.db
 # Garantizar que los assets internos de src/ siempre se incluyan
 !src/assets/
 !src/assets/**
+
+# ════════════════════════════════════════════════════════════
+#  CI/CD y seguridad (agregado por setup DevOps)
+# ════════════════════════════════════════════════════════════
+# Claves y secretos — NUNCA al repositorio
+*.pem
+*.key
+id_rsa
+id_ed25519
+github_actions_staging
+github_actions_staging.pub
+
+# Backups de deploy generados en el server
+.deploy-backups/
+
+# Logs
+*.log
+logs/
+deploy-staging.log
+
+# Runtime / caches de package managers
+.npm
+.yarn
+.cache/
+
+# Artefactos locales de sincronización (no versionar)
+run-sync.*
+sync.vbs
+fix-and-sync.vbs
+sync-ai-mcp.sh
+sync-result.txt

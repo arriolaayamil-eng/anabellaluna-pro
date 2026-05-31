@@ -7,17 +7,17 @@ set -eo pipefail
 #
 #  Uso manual:
 #    bash /var/www/anabellaluna-pro/scripts/deploy-staging.sh
-#    bash /var/www/anabellaluna-pro/scripts/deploy-staging.sh --only admin
-#    bash /var/www/anabellaluna-pro/scripts/deploy-staging.sh --only agents
-#    bash /var/www/anabellaluna-pro/scripts/deploy-staging.sh --only frontend
-#    bash /var/www/anabellaluna-pro/scripts/deploy-staging.sh --only backend
+#    bash /var/www/anabellaluna-pro/scripts/deploy-staging.sh --only admin|agents|frontend|backend
 #
-#  Llamado automáticamente por GitHub Actions en push a `staging`.
+#  Llamado automáticamente por GitHub Actions (.github/workflows/deploy-staging.yml)
+#  en cada push a la rama `develop`.
 # ═══════════════════════════════════════════════════════════
 
 PROJECT_DIR="/var/www/anabellaluna-pro"
 LOGFILE="$PROJECT_DIR/deploy-staging.log"
-NODE_VERSION="18"
+DEPLOY_BRANCH="develop"            # rama de integración -> staging (modelo de ramas en WORKFLOW.md)
+PM2_BACKEND="anabellaluna-pro-backend"  # nombre real del proceso PM2 en el server
+NODE_VERSION="22"                  # detectado: server corre node v22.x (sin .nvmrc en el repo)
 
 exec > >(tee -a "$LOGFILE") 2>&1
 
@@ -44,15 +44,16 @@ should_run() {
 echo ""
 log "═══════════════════════════════════════════════════"
 log "  DEPLOY STAGING — $(date '+%Y-%m-%d %H:%M:%S')"
-log "  Repo: $PROJECT_DIR"
+log "  Repo: $PROJECT_DIR  |  Branch: $DEPLOY_BRANCH"
 log "═══════════════════════════════════════════════════"
 
-# ── 1. Git pull desde staging ───────────────────────────────
-log "📥 Actualizando código (branch: staging)..."
+# ── 1. Sincronizar código con origin/develop (sync limpio, sin merges locales) ──
+log "📥 Actualizando código (branch: $DEPLOY_BRANCH)..."
 cd "$PROJECT_DIR"
-git fetch origin
-git checkout staging 2>/dev/null || git checkout -b staging origin/staging
-git pull origin staging || fail "git pull falló"
+git fetch origin "$DEPLOY_BRANCH" || fail "git fetch falló"
+# -f descarta cualquier cambio local en el server; reset --hard garantiza estado idéntico a origin
+git checkout -f -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH" || fail "git checkout falló"
+git reset --hard "origin/$DEPLOY_BRANCH" || fail "git reset falló"
 ok "Código en HEAD: $(git log --oneline -1)"
 
 # ── 2. Backend ───────────────────────────────────────────────
@@ -61,12 +62,12 @@ if should_run "backend"; then
   cd "$PROJECT_DIR/backend"
   npm install --no-audit --no-fund || fail "npm install backend falló"
 
-  log "🔄 Backend — reiniciando con PM2..."
-  if pm2 describe anabellaluna-backend > /dev/null 2>&1; then
-    pm2 restart anabellaluna-backend --update-env
+  log "🔄 Backend — reiniciando con PM2 ($PM2_BACKEND)..."
+  if pm2 describe "$PM2_BACKEND" > /dev/null 2>&1; then
+    pm2 restart "$PM2_BACKEND" --update-env
   else
-    cp .env.example .env 2>/dev/null || true  # primera vez: copiar ejemplo
-    pm2 start server.js --name anabellaluna-backend --cwd "$PROJECT_DIR/backend"
+    [ -f .env ] || cp .env.example .env 2>/dev/null || true   # primera vez: plantilla
+    pm2 start server.js --name "$PM2_BACKEND" --cwd "$PROJECT_DIR/backend"
   fi
   pm2 save
   ok "Backend activo en puerto 4000"
@@ -102,23 +103,23 @@ if should_run "agents"; then
   ok "Agents build → agents/build/"
 fi
 
-# ── 5. Frontend público (frontend.agentdebug.online) ─────────
+# ── 5. Frontend público (agentdebug.online) ─────────────────
 if should_run "frontend"; then
   log "🏗  Frontend — instalando dependencias..."
   cd "$PROJECT_DIR/frontend"
   npm install --no-audit --no-fund || fail "npm install frontend falló"
 
   log "🏗  Frontend — compilando..."
-  VITE_API_URL="https://frontend.agentdebug.online" \
+  VITE_API_URL="https://agentdebug.online" \
   NODE_ENV=production \
   npm run build || fail "Frontend build falló"
   ok "Frontend build → frontend/dist/"
 fi
 
-# ── 6. Nginx reload ─────────────────────────────────────────
-log "🔁 Recargando nginx..."
-sudo nginx -t && sudo systemctl reload nginx || warn "nginx reload falló — verificar manualmente"
-ok "Nginx recargado"
+# ── 6. Nginx reload (opcional: frontends son estáticos; solo necesario si cambió config) ──
+# Nota: requiere sudo sin password para nginx. Si no está disponible, se omite sin romper el deploy.
+log "🔁 Recargando nginx (best-effort)..."
+sudo -n nginx -t >/dev/null 2>&1 && sudo -n systemctl reload nginx && ok "Nginx recargado" || warn "Nginx no recargado (sudo no disponible sin tty) — frontends estáticos no lo requieren"
 
 # ── 7. Resumen ──────────────────────────────────────────────
 echo ""
@@ -127,7 +128,7 @@ log "  ✅ DEPLOY STAGING COMPLETADO — $(date '+%H:%M:%S')"
 log "═══════════════════════════════════════════════════"
 echo ""
 log "URLs activas:"
-echo "  🌐 https://frontend.agentdebug.online"
+echo "  🌐 https://agentdebug.online"
 echo "  🏢 https://admin.agentdebug.online"
 echo "  👤 https://agentes.agentdebug.online"
 echo ""
