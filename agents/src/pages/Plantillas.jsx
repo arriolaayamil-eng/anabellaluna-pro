@@ -197,7 +197,6 @@ const Plantillas = () => {
   };
 
   const handleInsertToken = (token) => {
-    if (!isAdmin) return;
     const textarea = textareaRef.current;
     if (!textarea) {
       setForm((prev) => ({ ...prev, content: `${prev.content}${prev.content ? '\n' : ''}${token}` }));
@@ -445,7 +444,7 @@ const Plantillas = () => {
 
       <div style={S.sectionHeader}>Contenido</div>
       <div style={{ ...S.card, padding: 16 }}>
-        <textarea ref={textareaRef} value={form.content} onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))} disabled={!isAdmin} rows={14} style={{ ...S.textarea, minHeight: 320 }} />
+        <textarea ref={textareaRef} value={form.content} onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))} rows={14} style={{ ...S.textarea, minHeight: 320 }} />
       </div>
 
       {placeholders.length > 0 && (

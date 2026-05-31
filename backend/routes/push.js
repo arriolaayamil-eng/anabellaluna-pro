@@ -27,12 +27,16 @@ router.get('/vapid-public-key', (req, res) => {
 });
 
 // POST /api/push/subscribe — save subscription (authenticated)
-router.post('/subscribe', async (req, res) => {
+router.post('/subscribe', authenticateToken, async (req, res) => {
   try {
-    const { userId, role, subscription, device } = req.body;
+    const { subscription, device } = req.body;
 
-    if (!userId || !role || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
-      return res.status(400).json({ error: 'Missing required fields: userId, role, subscription.endpoint, subscription.keys' });
+    // userId y role se derivan del JWT, NO del body.
+    const userId = req.user.agenteId || req.user.sub || req.user.id;
+    const role = req.user.role || 'agent';
+
+    if (!userId || !subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+      return res.status(400).json({ error: 'Missing required fields: subscription.endpoint, subscription.keys' });
     }
 
     const ua = device || req.headers['user-agent'] || '';
@@ -67,8 +71,8 @@ router.post('/subscribe', async (req, res) => {
   }
 });
 
-// POST /api/push/unsubscribe
-router.post('/unsubscribe', async (req, res) => {
+// POST /api/push/unsubscribe (authenticated)
+router.post('/unsubscribe', authenticateToken, async (req, res) => {
   try {
     const { endpoint } = req.body;
     if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });

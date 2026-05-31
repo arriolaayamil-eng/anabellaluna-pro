@@ -34,3 +34,7 @@ Thumbs.db
 # Garantizar que los assets internos de src/ siempre se incluyan
 !src/assets/
 !src/assets/**
+.deploy-backups/
+deploy-staging.log
+qa-reports/
+backend/jest.config.js

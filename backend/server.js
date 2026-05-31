@@ -184,9 +184,45 @@ const PORT = process.env.PORT || 4000;
 
 
 
+// ── JWT_SECRET guard (production) ────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    console.error('FATAL: JWT_SECRET ausente o débil. Abortando.');
+    process.exit(1);
+  }
+}
+
+
+
+const allowedOrigins = [
+  // Frontends web (nginx same-origin proxy → estos origins llegan en POSTs)
+  'https://agentdebug.online',
+  'https://www.agentdebug.online',
+  'https://admin.agentdebug.online',
+  'https://agentes.agentdebug.online',
+  // App móvil Capacitor
+  'capacitor://localhost',
+  'ionic://localhost',
+  'https://localhost',
+  'http://localhost',
+  // Dev local
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:4173',
+  // Env-based (flexibilidad futura sin tocar código)
+  process.env.EXTRA_ORIGIN,
+  process.env.STAGING_ORIGIN,
+  process.env.PROD_ORIGIN,
+].filter(Boolean);
+
 app.use(cors({
 
-  origin: true,
+  origin: (origin, cb) => {
+    // Permitir requests sin origin (Postman, mobile nativo, server-to-server)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS bloqueado para origin: ${origin}`));
+  },
 
   credentials: true,
 
@@ -328,6 +364,47 @@ app.use('/ai', aiChatRoutes);
 // Generic CRM routes (links) - MUST come after specific routes
 
 app.use('/crm', crmRoutes);
+
+
+
+// ── Alias /api/v1 (aditivo) ──────────────────────────────────────────────────
+// Monta los mismos routers bajo /api/v1 sin remover los paths legacy.
+app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/auth/2fa', twoFactorRouter);
+app.use('/api/v1/public', publicRoutes);
+app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/crm/tareas', tareasRoutes);
+app.use('/api/v1/crm/teams', teamsRoutes);
+app.use('/api/v1/crm/propiedades', propiedadesRoutes);
+app.use('/api/v1/crm/clientes', clientesRoutes);
+app.use('/api/v1/crm/agentes', agentesRoutes);
+app.use('/api/v1/crm/operaciones', operacionesRoutes);
+app.use('/api/v1/crm/citas', citasRoutes);
+app.use('/api/v1/crm/activities', activitiesRoutes);
+app.use('/api/v1/crm/integrations', integrationsRoutes);
+app.use('/api/v1/crm/rewards', rewardsRoutes);
+app.use('/api/v1/crm/rewards-v2', rewardsV2Routes);
+app.use('/api/v1/crm/messages', messagesRoutes);
+app.use('/api/v1/crm/reports', reportsRoutes);
+app.use('/api/v1/crm/notifications', notificationsRoutes);
+app.use('/api/v1/crm/automations', automationsRoutes);
+app.use('/api/v1/crm/fechas-importantes', fechasImportantesRoutes);
+app.use('/api/v1/crm/client-interactions', clientInteractionsRoutes);
+app.use('/api/v1/crm/stats', dashboardStatsRoutes);
+app.use('/api/v1/admin/stats', adminDashboardStatsRoutes);
+app.use('/api/v1/admin/notifications', adminNotificationsRoutes);
+app.use('/api/v1/admin/config', globalConfigRoutes);
+app.use('/api/v1/admin/ml', mercadoLibreRoutes);
+app.use('/api/v1/admin/config/ai', adminAIConfigRoutes);
+app.use('/api/v1/files', foldersRoutes);
+app.use('/api/v1/editor', editorRoutes);
+app.use('/api/v1/crm/tasaciones', tasacionesRoutes);
+app.use('/api/v1/crm/inmobiliarias', inmobiliariasRoutes);
+app.use('/api/v1/contract-templates', contractTemplatesRoutes);
+app.use('/api/v1/push', pushRoutes);
+app.use('/api/v1/marketing-ai', marketingAIRoutes);
+app.use('/api/v1/ai', aiChatRoutes);
+app.use('/api/v1/crm', crmRoutes);
 
 
 

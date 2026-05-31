@@ -18,7 +18,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const twoFactor = require('../services/twoFactorService');
-const { authenticateToken } = require('../auth');
+const { authenticateToken, generateRefreshToken } = require('../auth');
 
 const router = express.Router();
 
@@ -57,7 +57,7 @@ function signFullToken(user) {
   return jwt.sign(
     { sub: user._id, username: user.username, role: user.role, agenteId: user.agenteId },
     JWT_SECRET,
-    { expiresIn: '8h' }
+    { expiresIn: '15m' }
   );
 }
 
@@ -244,7 +244,9 @@ router.post('/verify-login', async (req, res) => {
     });
 
     const token = signFullToken(user);
-    return res.json({ token });
+    const device = (req.body && req.body.device) || getUA(req) || 'unknown';
+    const { token: refreshToken } = await generateRefreshToken(user._id, device);
+    return res.json({ token, accessToken: token, refreshToken });
   } catch (err) {
     console.error('[2FA verify-login]', err.message);
     return res.status(500).json({ error: 'Verification failed' });
@@ -312,7 +314,9 @@ router.post('/recovery/use', async (req, res) => {
     });
 
     const token = signFullToken(user);
-    return res.json({ token, recoveryCodesRemaining: remaining });
+    const device = (req.body && req.body.device) || getUA(req) || 'unknown';
+    const { token: refreshToken } = await generateRefreshToken(user._id, device);
+    return res.json({ token, accessToken: token, refreshToken, recoveryCodesRemaining: remaining });
   } catch (err) {
     console.error('[2FA recovery/use]', err.message);
     return res.status(500).json({ error: 'Recovery code verification failed' });

@@ -48,8 +48,13 @@ async function initSocket(server) {
       return next(new Error('Authentication required'));
     }
 
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return next(new Error('Server misconfigured: JWT_SECRET is not set'));
+    }
+
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, secret);
       socket.user = decoded;
       next();
     } catch (err) {

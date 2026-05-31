@@ -223,7 +223,7 @@ router.post('/:id/reset-password', authenticateToken, requireRole('admin'), asyn
     const agente = await Agente.findById(req.params.id).lean();
     if (!agente) return res.status(404).json({ error: 'Agente no encontrado' });
 
-    const user = await User.findOne({ agenteId: agente._id });
+    const user = await User.findOne({ $or: [{ agenteId: agente._id }, { agenteId: String(agente._id) }] });
     if (!user) return res.status(404).json({ error: 'No se encontró usuario vinculado a este agente' });
 
     const newPassword = req.body.password && String(req.body.password).trim().length >= 6
