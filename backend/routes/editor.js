@@ -35,9 +35,18 @@ function buildProxyUrl(req, bucket, key) {
   return `${proto}://${host}/editor/file?bucket=${encodeURIComponent(bucket)}&key=${encodeURIComponent(key)}`;
 }
 
+// Uploader de imágenes (fotos de propiedades / watermarks): solo imágenes, 20MB máx.
+const PHOTO_ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: editorStorage.MAX_FILE_SIZE },
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  fileFilter: (req, file, cb) => {
+    if (PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}`));
+    }
+  },
 });
 
 // ── List images from the existing file system (Documents) ──
@@ -518,6 +527,20 @@ router.get('/file', async (req, res) => {
     console.error('[Editor] Proxy error:', err.message);
     res.status(err.code === 'NoSuchKey' ? 404 : 500).json({ error: err.message });
   }
+});
+
+// ── Manejo de errores de multer (tamaño / tipo no permitido) ──────────────────
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'Archivo demasiado grande (máximo 20MB)' });
+    }
+    return res.status(400).json({ error: err.message });
+  }
+  if (err && /Tipo de archivo no permitido/.test(err.message || '')) {
+    return res.status(400).json({ error: err.message });
+  }
+  return next(err);
 });
 
 module.exports = router;
