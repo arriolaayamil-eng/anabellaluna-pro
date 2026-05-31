@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 
 const jwt = require('jsonwebtoken');
 
+const crypto = require('crypto');
+
 const { OAuth2Client } = require('google-auth-library');
 
 const db = require('./db');
@@ -12,6 +14,8 @@ const User = require('./models/User');
 
 const Agente = require('./models/Agente');
 
+const RefreshToken = require('./models/RefreshToken');
+
 
 
 const router = express.Router();
@@ -19,6 +23,8 @@ const router = express.Router();
 
 
 const JWT_SECRET = process.env.JWT_SECRET || 'please-change-this-secret';
+
+const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
 
 
 
@@ -30,9 +36,45 @@ function signToken(user) {
 
     JWT_SECRET,
 
-    { expiresIn: '8h' }
+    { expiresIn: '15m' }
 
   );
+
+}
+
+
+
+// ── Refresh token helpers ─────────────────────────────────────────────────────
+
+function hashToken(token) {
+
+  return crypto.createHash('sha256').update(token).digest('hex');
+
+}
+
+
+
+async function generateRefreshToken(userId, device = 'unknown', familyId = null) {
+
+  const token = crypto.randomBytes(64).toString('hex');
+
+  const family = familyId || crypto.randomUUID();
+
+  await RefreshToken.create({
+
+    userId,
+
+    tokenHash: hashToken(token),
+
+    familyId: family,
+
+    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+
+    device,
+
+  });
+
+  return { token, familyId: family };
 
 }
 
@@ -296,7 +338,13 @@ router.post('/login', async (req, res) => {
 
     const token = signToken(user);
 
-    res.json({ token });
+    const device = (req.body && req.body.device) || req.headers['user-agent'] || 'unknown';
+
+    const { token: refreshToken } = await generateRefreshToken(user._id, device);
+
+    // `token` es alias temporal de `accessToken` para no romper los 3 frontends web.
+
+    res.json({ token, accessToken: token, refreshToken });
 
   } catch (err) {
 
@@ -304,6 +352,69 @@ router.post('/login', async (req, res) => {
 
   }
 
+});
+
+
+
+// ── POST /refresh — rotación de refresh tokens ───────────────────────────────
+// Sólo expuesto bajo /api/v1/auth/refresh (no tiene equivalente legacy).
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body || {};
+    if (!refreshToken) return res.status(400).json({ error: 'refreshToken requerido' });
+
+    const stored = await RefreshToken.findOne({ tokenHash: hashToken(refreshToken) }).exec();
+    if (!stored) return res.status(401).json({ error: 'Refresh token inválido' });
+
+    // Reuso de un token ya rotado → familia comprometida: revocar todo el árbol.
+    if (stored.revokedAt) {
+      await RefreshToken.updateMany(
+        { familyId: stored.familyId, revokedAt: null },
+        { $set: { revokedAt: new Date() } }
+      );
+      return res.status(401).json({ error: 'Sesión comprometida' });
+    }
+
+    if (stored.expiresAt < new Date()) {
+      return res.status(401).json({ error: 'Refresh token expirado' });
+    }
+
+    const user = await User.findById(stored.userId).exec();
+    if (!user) return res.status(401).json({ error: 'Refresh token inválido' });
+
+    // Revocar el token actual y emitir uno nuevo en la misma familia (rotación).
+    stored.revokedAt = new Date();
+    await stored.save();
+
+    const accessToken = signToken(user);
+    const { token: newRefreshToken } = await generateRefreshToken(
+      stored.userId,
+      stored.device,
+      stored.familyId
+    );
+
+    return res.json({ accessToken, refreshToken: newRefreshToken });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// ── POST /logout — revoca un refresh token específico ────────────────────────
+router.post('/logout', async (req, res) => {
+  try {
+    const { refreshToken } = req.body || {};
+    if (refreshToken) {
+      await RefreshToken.updateOne(
+        { tokenHash: hashToken(refreshToken), revokedAt: null },
+        { $set: { revokedAt: new Date() } }
+      );
+    }
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 
@@ -639,6 +750,10 @@ module.exports = {
   agentScopeId,
 
   requireCRMUser,
+
+  signToken,
+
+  generateRefreshToken,
 
 };
 
