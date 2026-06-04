@@ -1,6 +1,9 @@
 import { api } from '../config/api';
 
-const BASE = '/marketing-ai';
+// El nginx de agentes.agentdebug.online proxea /api/ al backend, pero NO /marketing-ai
+// (ese path cae al SPA y devuelve HTML). El backend monta las rutas también bajo
+// /api/v1/marketing-ai, así que usamos ese prefijo ya proxeado.
+const BASE = '/api/v1/marketing-ai';
 
 export const aiService = {
   getConversations: () => api.get(`${BASE}/conversations`),
